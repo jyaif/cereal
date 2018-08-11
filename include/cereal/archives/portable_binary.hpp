@@ -219,9 +219,9 @@ namespace cereal
       /*! @param stream The stream to read from. Should be opened with std::ios::binary flag.
           @param options The PortableBinary specific options to use.  See the Options struct
                          for the values of default parameters */
-      PortableBinaryInputArchive(std::istream & stream, Options const & options = Options::Default()) :
+      PortableBinaryInputArchive(std::vector<int8_t> const& data, Options const & options = Options::Default()) :
         InputArchive<PortableBinaryInputArchive, AllowEmptyClassElision>(this),
-        itsStream(stream),
+        data_(data),
         itsConvertEndianness( false )
       {
         uint8_t streamLittleEndian;
@@ -239,11 +239,11 @@ namespace cereal
       void loadBinary( void * const data, std::size_t size )
       {
         // load data
-        auto const readSize = static_cast<std::size_t>( itsStream.rdbuf()->sgetn( reinterpret_cast<char*>( data ), size ) );
-
-        if(readSize != size)
-          throw Exception("Failed to read " + std::to_string(size) + " bytes from input stream! Read " + std::to_string(readSize));
-
+        if (offset_in_data_ + size > data_.size()) {
+          throw Exception("Failed to read " + std::to_string(size) + " bytes from input stream!");
+        }
+        memcpy(data, &(data_[offset_in_data_]), size);
+        offset_in_data_ += size;
         // flip bits if needed
         if( itsConvertEndianness )
         {
@@ -254,7 +254,8 @@ namespace cereal
       }
 
     private:
-      std::istream & itsStream;
+      std::vector<int8_t> const& data_;
+      size_t offset_in_data_ = 0;
       uint8_t itsConvertEndianness; //!< If set to true, we will need to swap bytes upon loading
   };
 
